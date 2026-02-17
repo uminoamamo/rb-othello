@@ -3,20 +3,29 @@ let board = [];
 let currentPlayer = 1; // 1: 先手(減算), 2: 後手(加算)
 let currentElement = 'r'; // 'r' または 'b'
 let turnCount = 1;
+let isBlackMode = false; // 黒モードの状態
 
 const boardEl = document.getElementById('board');
 
+// --- 追加: 黒モードの切り替え ---
+function toggleBlackMode() {
+    isBlackMode = !isBlackMode;
+    const btn = document.getElementById('mode-toggle');
+    btn.textContent = `黒モード: ${isBlackMode ? 'ON' : 'OFF'}`;
+    btn.style.backgroundColor = isBlackMode ? '#000' : '#444';
+    btn.style.borderColor = isBlackMode ? '#ff4757' : '#888';
+    render();
+}
+
 function initBoard() {
     turnCount = 1;
+    currentPlayer = 1;
     board = Array.from({ length: SIZE }, () => 
-        Array.from({ length: SIZE }, () => ({ r: 0, b: 0, active: false })) // activeを追加
+        Array.from({ length: SIZE }, () => ({ r: 0, b: 0, active: false }))
     );
 
-    // 初期配置: 中央4マスのみ active にする
-    // (4,4) と (5,5) は紫(1,1)
     board[3][3] = { r: 1, b: 1, active: true };
     board[4][4] = { r: 1, b: 1, active: true };
-    // (4,5) と (5,4) は黒(0,0)
     board[3][4] = { r: 0, b: 0, active: true };
     board[4][3] = { r: 0, b: 0, active: true };
     
@@ -41,13 +50,11 @@ function render() {
             const cell = document.createElement('div');
             cell.className = 'cell';
             
-            // 有効な手であればハイライト
             if (validMoves.some(m => m.r === r && m.c === c)) {
                 cell.classList.add('valid');
                 cell.onclick = () => handleMove(r, c);
             }
 
-            // 石が置かれている(active)場合のみ石を表示
             if (cellData.active) {
                 const stone = document.createElement('div');
                 stone.className = 'stone ' + getColorName(cellData);
@@ -56,7 +63,6 @@ function render() {
                 if (cellData.r === 0 && cellData.b === 0) blackCount++;
                 if (cellData.r === 1 && cellData.b === 1) purpleCount++;
             }
-            
             boardEl.appendChild(cell);
         }
     }
@@ -80,11 +86,8 @@ function getValidMoves() {
     const moves = [];
     for (let r = 0; r < SIZE; r++) {
         for (let c = 0; c < SIZE; c++) {
-            // 既に石がある場所には置けない
             if (board[r][c].active) continue;
-
-            // 設置条件：そのマスが今の手番の要素を持っていないこと (R:0 または B:0)
-            // 先手・後手共通で、置く瞬間にその要素を1として置くため、元が1だと置けない
+            // 設置条件：そのマスが今の手番の要素を持っていないこと
             if (board[r][c][currentElement] === 0) {
                 if (getFlippableStones(r, c).length > 0) {
                     moves.push({ r, c });
@@ -95,46 +98,80 @@ function getValidMoves() {
     return moves;
 }
 
+let isAdvantageMode = false; // 不利解消モードのフラグ
+
+// 不利解消モードの切り替え
+function toggleAdvantageMode() {
+    isAdvantageMode = !isAdvantageMode;
+    const btn = document.getElementById('adv-toggle');
+    btn.textContent = `不利解消モード: ${isAdvantageMode ? 'ON' : 'OFF'}`;
+    btn.classList.toggle('on', isAdvantageMode);
+    render();
+}
+
+// 黒モードの切り替え
+function toggleBlackMode() {
+    isBlackMode = !isBlackMode;
+    const btn = document.getElementById('mode-toggle');
+    btn.textContent = `黒モード: ${isBlackMode ? 'ON' : 'OFF'}`;
+    btn.classList.toggle('on', isBlackMode);
+    render();
+}
+
 function getFlippableStones(row, col) {
-    const directions = [
-        [-1,-1], [-1,0], [-1,1], [0,-1], [0,1], [1,-1], [1,0], [1,1]
-    ];
+    const directions = [[-1,-1], [-1,0], [-1,1], [0,-1], [0,1], [1,-1], [1,0], [1,1]];
     let allFlippable = [];
 
     directions.forEach(([dr, dc]) => {
         let r = row + dr;
         let c = col + dc;
         let temp = [];
+        let furthestAnchor = null;
 
-        while (r >= 0 && r < SIZE && c >= 0 && c < SIZE) {
-            const cell = board[r][c];
-            // 石がない場所（activeでない）に突き当たったら終了
-            if (!cell.active) break;
+        if (isAdvantageMode && currentPlayer === 1) {
+            // 【不利解消モード】最遠のアンカーを探すロジック
+            let potentialFlippable = [];
+            while (r >= 0 && r < SIZE && c >= 0 && c < SIZE) {
+                const cell = board[r][c];
+                if (!cell.active) break;
 
-            if (currentPlayer === 1) { // 先手(減算者): 間の石の要素が1である必要がある
+                // 減算対象(1)があればストック
                 if (cell[currentElement] === 1) {
-                    temp.push({ r, c });
-                } else {
-                    break;
-                }
-            } else { // 後手(加算者): 間の石の要素が0である必要がある
-                if (cell[currentElement] === 0) {
-                    temp.push({ r, c });
-                } else {
-                    break;
-                }
+                    potentialFlippable.push({ r, c });
+                    // これが現在の最遠アンカー候補
+                    furthestAnchor = { r, c };
+                } 
+                // 属性0の石が混じっていても、不利解消モードでは「飛び越えて」その先を探す
+                // ※ただし石自体は繋がっている（activeである）必要がある
+                
+                r += dr;
+                c += dc;
             }
-            
-            r += dr;
-            c += dc;
+            if (furthestAnchor) {
+                allFlippable = allFlippable.concat(potentialFlippable);
+            }
+        } else {
+            // 【通常モード】連続している石のみを対象とするロジック
+            while (r >= 0 && r < SIZE && c >= 0 && c < SIZE) {
+                const cell = board[r][c];
+                if (!cell.active) break;
 
-            // 挟んだ端の判定
-            if (r >= 0 && r < SIZE && c >= 0 && c < SIZE) {
-                const targetCell = board[r][c];
-                // 端の石が active かつ 指定要素を含んでいる(1である)こと
-                if (targetCell.active && targetCell[currentElement] === 1 && temp.length > 0) {
-                    allFlippable = allFlippable.concat(temp);
-                    break;
+                if (currentPlayer === 1) { // 減算
+                    if (cell[currentElement] === 1) temp.push({ r, c });
+                    else break;
+                } else { // 加算
+                    if (cell[currentElement] === 0) temp.push({ r, c });
+                    else break;
+                }
+                r += dr;
+                c += dc;
+
+                if (r >= 0 && r < SIZE && c >= 0 && c < SIZE) {
+                    const target = board[r][c];
+                    if (target.active && target[currentElement] === 1 && temp.length > 0) {
+                        allFlippable = allFlippable.concat(temp);
+                        break;
+                    }
                 }
             }
         }
@@ -145,34 +182,36 @@ function getFlippableStones(row, col) {
 function handleMove(r, c) {
     const flippable = getFlippableStones(r, c);
     
-    // 石を設置
     board[r][c].active = true;
-    board[r][c][currentElement] = 1; // 置いた瞬間はその要素を持つ
+
+    // 黒モードの処理
+    if (isBlackMode && currentPlayer === 1) {
+        board[r][c][currentElement] = Math.random() < 0.5 ? 0 : 1;
+    } else {
+        board[r][c][currentElement] = 1;
+    }
     
-    // 挟んだ要素を変化（1→0 または 0→1）
+    // 反転処理
     flippable.forEach(pos => {
         board[pos.r][pos.c][currentElement] = (currentPlayer === 1 ? 0 : 1);
     });
 
-    // ターン更新処理
     turnCount++;
     currentPlayer = currentPlayer === 1 ? 2 : 1;
     decideElement();
-    
     render();
     checkGameOver();
 }
 
 function checkGameOver() {
     if (getValidMoves().length === 0) {
-        // パス判定
         currentPlayer = currentPlayer === 1 ? 2 : 1;
         if (getValidMoves().length === 0) {
             const results = calculateFinalScore();
-            alert(`ゲーム終了！\nターン: ${turnCount-1}\nBlack(0,0): ${results.black}\nPurple(1,1): ${results.purple}\n勝者: ${results.winner}`);
+            alert(`ゲーム終了！\nBlack(0,0): ${results.black}\nPurple(1,1): ${results.purple}\n勝者: ${results.winner}`);
         } else {
             alert("置ける場所がないためパスします。");
-            decideElement(); // 要素を振り直して再描画
+            decideElement();
             render();
         }
     }
@@ -186,9 +225,7 @@ function calculateFinalScore() {
             if (cell.r === 1 && cell.b === 1) p++;
         }
     }));
-    let winner = "引き分け";
-    if (b > p) winner = "Black (先手有利?)";
-    if (p > b) winner = "Purple (後手有利?)";
+    let winner = b === p ? "引き分け" : (b > p ? "Black" : "Purple");
     return { black: b, purple: p, winner: winner };
 }
 
