@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>RB Othello</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="game-container">
+        <h1>RB Othello</h1>
+        <div class="status-panel">
+            <div id="turn-count">ターン: 1</div> <div id="turn-info">手番: <span id="current-player">-</span></div>
+            <div id="element-info">操作要素: <span id="current-element">-</span></div>
+            <div id="score">Black: 0 | Purple: 0</div>
+        </div>
+        <div id="board" class="board"></div>
+        <div id="message"></div>
+        <button onclick="resetGame()">リセット</button>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
