@@ -12,6 +12,14 @@
             <div id="turn-count">ターン: 1</div> <div id="turn-info">手番: <span id="current-player">-</span></div>
             <div id="element-info">操作要素: <span id="current-element">-</span></div>
             <div id="score">Black: 0 | Purple: 0</div>
+            <div style="margin-top: 10px;">
+                <button id="mode-toggle" onclick="toggleBlackMode()" style="background: #444; color: white; border: 1px solid #888; padding: 5px 10px; cursor: pointer;">
+                    黒モード: OFF
+                </button>
+                <button id="adv-toggle" onclick="toggleAdvantageMode()">
+                    不利解消モード: OFF
+                </button>
+    </div>
         </div>
         <div id="board" class="board"></div>
         <div id="message"></div>
